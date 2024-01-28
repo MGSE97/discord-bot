@@ -17,3 +17,9 @@ Cargo.lock
 # Added by cargo
 
 /target
+
+# Custom
+*.prompt
+*.data
+*.ds
+.env
