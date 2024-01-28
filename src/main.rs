@@ -1,11 +1,19 @@
 use std::env;
 
 use dotenv::dotenv;
-use serenity::async_trait;
-use serenity::framework::standard::macros::{command, group};
-use serenity::framework::standard::{CommandResult, Configuration, StandardFramework};
-use serenity::model::channel::Message;
-use serenity::prelude::*;
+use serenity::{
+    all::Ready,
+    async_trait,
+    framework::standard::{macros::group, Configuration, StandardFramework},
+    prelude::*,
+};
+use tracing::{error, info};
+use tracing_subscriber::fmt;
+
+mod commands;
+mod handlers;
+
+use crate::commands::hoo::*;
 
 #[group]
 #[commands(hoo)]
@@ -14,17 +22,40 @@ struct General;
 struct Handler;
 
 #[async_trait]
-impl EventHandler for Handler {}
+impl EventHandler for Handler {
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        info!("Connected to: {:#?}", ready.guilds);
+        for guild in ready.guilds {
+            if !guild.unavailable {
+                let new_commands = guild
+                    .id
+                    .set_commands(&ctx.http, vec![commands::hoo::register()])
+                    .await;
+                info!("Set guild({}) slash commands: {new_commands:#?}", guild.id);
+            }
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+    fmt().init();
+
     let framework = StandardFramework::new().group(&GENERAL_GROUP);
-    framework.configure(Configuration::new().prefix("🦉")); // set the bot's prefix to "~"
+    framework.configure(
+        Configuration::new() // Configure bot
+            .prefixes(vec!["/", "!", ":owl:", "🦉"])
+            .case_insensitivity(true),
+    );
 
     // Login with a bot token from the environment
     let token = env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN is missing in environment!");
-    let intents = GatewayIntents::non_privileged() | GatewayIntents::MESSAGE_CONTENT;
+    let intents = GatewayIntents::non_privileged()
+        | GatewayIntents::MESSAGE_CONTENT
+        | GatewayIntents::DIRECT_MESSAGES
+        | GatewayIntents::GUILD_MESSAGES;
+
     let mut client = Client::builder(token, intents)
         .event_handler(Handler)
         .framework(framework)
@@ -32,33 +63,8 @@ async fn main() {
         .expect("Error creating client");
 
     // start listening for events by starting a single shard
-    if let Err(why) = client.start().await {
-        println!("An error occurred while running the client: {:?}", why);
+    match client.start().await {
+        Err(err) => error!("An error occurred while running the client: {err:?}"),
+        Ok(_) => info!("Started client"),
     }
-}
-
-#[command]
-async fn hoo(ctx: &Context, msg: &Message) -> CommandResult {
-    let number = msg
-        .content
-        .to_string()
-        .split_ascii_whitespace()
-        .find_map(|x| x.parse::<u64>().ok());
-
-    let mut response = "🦉 Hoo!".to_string();
-
-    if let Some(number) = number {
-        response = format!(
-            "{response}\nZa {number} si {}",
-            match number {
-                p if p < 50 => "ani ptáčka nekoupíš.".to_string(),
-                p if p < 15_000 => format!("koupíš {} ptáčků.", number / 50),
-                _ => format!("koupíš {} sovy.", number / 15_000),
-            }
-        );
-    }
-
-    msg.reply(ctx, &response).await?;
-
-    Ok(())
 }
