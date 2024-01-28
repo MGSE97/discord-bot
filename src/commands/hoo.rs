@@ -1,65 +1,61 @@
-use serenity::{
-    all::{CommandOptionType, Message},
-    builder::{CreateCommand, CreateCommandOption},
-    client::Context,
-    framework::standard::{macros::command, CommandResult},
-};
+use poise::command;
+use thousands::Separable;
 
-pub fn register() -> CreateCommand {
-    CreateCommand::new("hoo")
-        .description("Owl will listen to your inquery.")
-        .add_option(
-            CreateCommandOption::new(CommandOptionType::String, "inquery", "Inquery")
-                .required(false),
-        )
-}
+use crate::{Context, Error};
 
-#[command]
-#[description("Owl will listen to your inquery.")]
-async fn hoo(ctx: &Context, msg: &Message) -> CommandResult {
-    let text = msg.content.to_string();
-    let response = respond_to_numbers(&text);
-    msg.reply(ctx, &response).await?;
-
+/// Owl will listen to your inquery.
+#[command(prefix_command, slash_command)]
+pub async fn hoo(
+    ctx: Context<'_>,
+    #[rest]
+    #[description = "Inquery"]
+    inquery: Option<String>,
+) -> Result<(), Error> {
+    let response = respond_to_numbers(inquery);
+    ctx.reply(&response).await?;
     Ok(())
 }
 
-pub fn respond_to_numbers(msg: &str) -> String {
-    let mut response = "🦉 Hoo!".to_string();
+pub fn respond_to_numbers(inquery: Option<String>) -> String {
+    let message = inquery.unwrap_or_default();
+    let mut response = format!("🦉 Hoo! {message}");
 
-    let numbers = get_msg_numbers(msg);
+    if !message.trim().is_empty() {
+        let numbers = get_msg_numbers(&message);
 
-    for number in numbers {
-        response = format!(
-            "{response}\nZa {number} si {}",
-            match number {
-                p if p < 50 => "ani ptáčka nekoupíš.".to_string(),
-                p if p < 15_000 => {
-                    let birds = number / 50;
-                    format!(
-                        "koupíš {} {}.",
-                        birds,
-                        match birds {
-                            1 => "ptáčka",
-                            n if n <= 4 => "ptáčky",
-                            _ => "ptáčků",
-                        }
-                    )
+        for number in numbers {
+            response = format!(
+                "{response}\nZa {value} si {item}",
+                value = number.separate_with_spaces(),
+                item = match number {
+                    p if p < 50 => "ani ptáčka nekoupíš.".to_string(),
+                    p if p < 15_000 => {
+                        let birds = number / 50;
+                        format!(
+                            "koupíš {value} {item}.",
+                            value = birds.separate_with_spaces(),
+                            item = match birds {
+                                1 => "ptáčka",
+                                n if n <= 4 => "ptáčky",
+                                _ => "ptáčků",
+                            }
+                        )
+                    }
+                    _ => {
+                        let owls = number / 15_000;
+                        format!(
+                            "koupíš {value} {item}.",
+                            value = owls.separate_with_spaces(),
+                            item = match owls {
+                                1 => "sovu",
+                                n if n <= 4 => "sovy",
+                                _ => "sov",
+                            }
+                        )
+                    }
                 }
-                _ => {
-                    let owls = number / 15_000;
-                    format!(
-                        "koupíš {} {}.",
-                        owls,
-                        match owls {
-                            1 => "sovu",
-                            n if n <= 4 => "sovy",
-                            _ => "sov",
-                        }
-                    )
-                }
-            }
-        );
+            );
+        }
     }
 
     response
@@ -122,6 +118,7 @@ fn parse_number(
 ) -> Option<u64> {
     let mut result = None;
     if !number_str.is_empty() {
+        // Parse from string
         let number: Option<u64> = number_str
             .parse::<f64>()
             .ok()
@@ -130,6 +127,7 @@ fn parse_number(
                 false => None,
             });
         if let Some(number) = number {
+            // Parse optional exponent
             let mut exponent = 0;
             while let Some(&c) = chars.peek() {
                 if c.is_whitespace() && exponent == 0 {
@@ -157,6 +155,7 @@ fn parse_number(
                     }
                 }
             }
+            // Set resulting number
             result = match exponent > 0 {
                 true => u64::checked_pow(10, exponent).and_then(|exp| number.checked_mul(exp)),
                 false => Some(number),

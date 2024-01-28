@@ -1,63 +1,56 @@
 use std::env;
 
+use commands::hoo::*;
 use dotenv::dotenv;
-use serenity::{
-    all::Ready,
-    async_trait,
-    framework::standard::{macros::group, Configuration, StandardFramework},
-    prelude::*,
+use poise::{
+    serenity_prelude as serenity, Framework, FrameworkOptions, Prefix, PrefixFrameworkOptions,
 };
 use tracing::{error, info};
 use tracing_subscriber::fmt;
 
 mod commands;
-mod handlers;
 
-use crate::commands::hoo::*;
-
-#[group]
-#[commands(hoo)]
-struct General;
-
-struct Handler;
-
-#[async_trait]
-impl EventHandler for Handler {
-    async fn ready(&self, ctx: Context, ready: Ready) {
-        info!("Connected to: {:#?}", ready.guilds);
-        for guild in ready.guilds {
-            if !guild.unavailable {
-                let new_commands = guild
-                    .id
-                    .set_commands(&ctx.http, vec![commands::hoo::register()])
-                    .await;
-                info!("Set guild({}) slash commands: {new_commands:#?}", guild.id);
-            }
-        }
-    }
-}
+pub struct Data {} // User data, which is stored and accessible in all command invocations
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
+pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
     fmt().init();
 
-    let framework = StandardFramework::new().group(&GENERAL_GROUP);
-    framework.configure(
-        Configuration::new() // Configure bot
-            .prefixes(vec!["/", "!", ":owl:", "🦉"])
-            .case_insensitivity(true),
-    );
+    let framework = Framework::builder()
+        .options(FrameworkOptions {
+            commands: vec![hoo()],
+            prefix_options: PrefixFrameworkOptions {
+                prefix: Some("/".to_string()),
+                additional_prefixes: ["!", ":owl:", "🦉"]
+                    .iter()
+                    .map(|p| Prefix::Literal(p))
+                    .collect(),
+                case_insensitive_commands: true,
+                ignore_bots: true,
+                execute_self_messages: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .setup(|ctx, _ready, framework| {
+            Box::pin(async move {
+                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                Ok(Data {})
+            })
+        })
+        .build();
 
     // Login with a bot token from the environment
     let token = env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN is missing in environment!");
-    let intents = GatewayIntents::non_privileged()
-        | GatewayIntents::MESSAGE_CONTENT
-        | GatewayIntents::DIRECT_MESSAGES
-        | GatewayIntents::GUILD_MESSAGES;
+    let intents = serenity::GatewayIntents::non_privileged()
+        | serenity::GatewayIntents::MESSAGE_CONTENT
+        | serenity::GatewayIntents::DIRECT_MESSAGES
+        | serenity::GatewayIntents::GUILD_MESSAGES;
 
-    let mut client = Client::builder(token, intents)
-        .event_handler(Handler)
+    let mut client = serenity::Client::builder(token, intents)
         .framework(framework)
         .await
         .expect("Error creating client");
