@@ -39,7 +39,26 @@ async fn main() {
 
 #[command]
 async fn hoo(ctx: &Context, msg: &Message) -> CommandResult {
-    msg.reply(ctx, "Hoo!").await?;
+    let number = msg
+        .content
+        .to_string()
+        .split_ascii_whitespace()
+        .find_map(|x| x.parse::<u64>().ok());
+
+    let mut response = "🦉 Hoo!".to_string();
+
+    if let Some(number) = number {
+        response = format!(
+            "{response}\nZa {number} si {}",
+            match number {
+                p if p < 50 => "ani ptáčka nekoupíš.".to_string(),
+                p if p < 15_000 => format!("koupíš {} ptáčků.", number / 50),
+                _ => format!("koupíš {} sovy.", number / 15_000),
+            }
+        );
+    }
+
+    msg.reply(ctx, &response).await?;
 
     Ok(())
 }
