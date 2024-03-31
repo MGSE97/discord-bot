@@ -1,3 +1,15 @@
+/// Logs command execution details
+///
+/// Syntax:
+///
+/// ```ignore
+/// log_cmd(
+///     ctx::my_command(
+///         // Args
+///         input = input.unwrap_or("None")
+///     ) => result
+/// )
+/// ```
 #[macro_export]
 macro_rules! log_cmd {
     (
