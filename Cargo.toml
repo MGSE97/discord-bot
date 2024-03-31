@@ -16,3 +16,10 @@ thousands = "0.2.0"
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["chrono", "env-filter", "time"] }
+
+# Optimizations from https://github.com/johnthagen/min-sized-rust
+[profile.release]
+strip = true        # Automatically strip symbols from the binary.
+opt-level = "z"     # Optimize for size.
+lto = true          # Remove dead code during linking
+codegen-units = 1   # Single codegen unit reduces code splitting
