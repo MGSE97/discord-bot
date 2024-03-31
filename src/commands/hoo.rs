@@ -1,9 +1,11 @@
 use poise::command;
 use thousands::Separable;
+use tracing::instrument;
 
-use crate::{Context, Error};
+use crate::{log_cmd, Context, Error};
 
 /// Owl will listen to your inquery.
+#[instrument(level = "trace", skip(ctx), ret)]
 #[command(prefix_command, slash_command)]
 pub async fn hoo(
     ctx: Context<'_>,
@@ -11,7 +13,14 @@ pub async fn hoo(
     #[description = "Inquery"]
     inquery: Option<String>,
 ) -> Result<(), Error> {
-    let response = respond_to_numbers(inquery);
+    let response = respond_to_numbers(inquery.clone());
+    log_cmd!(
+        ctx::hoo (
+            inquery = inquery
+                .map(|i| format!("\"{i:?}\""))
+                .unwrap_or_else(|| "None".to_string())
+        ) => response
+    );
     ctx.reply(&response).await?;
     Ok(())
 }

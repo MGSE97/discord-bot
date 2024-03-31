@@ -5,17 +5,19 @@ use poise::{
     CreateReply,
 };
 use reqwest::Client;
+use tracing::instrument;
 
-use crate::{Context, Error};
+use crate::{log_cmd, Context, Error};
 
 /// Owl will go to barber.
 #[command(slash_command, owners_only)]
-#[tracing::instrument(skip(ctx, avatar))]
+#[instrument(level = "trace", skip(ctx, avatar), ret)]
 pub async fn barber(
     ctx: Context<'_>,
     #[description = "Owl icon"] avatar: Attachment,
 ) -> Result<(), Error> {
     let channel_id = ctx.channel_id();
+    log_cmd!(ctx::barber(avatar = avatar.url));
 
     let message_str = "🐱‍🏍 Going to barber ...".to_string();
     let reply = ctx.reply(&message_str).await?;

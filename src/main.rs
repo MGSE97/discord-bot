@@ -9,6 +9,8 @@ use tracing::{error, info};
 use tracing_subscriber::fmt;
 
 mod commands;
+#[macro_use]
+pub(crate) mod logs;
 
 pub struct Data {} // User data, which is stored and accessible in all command invocations
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -18,6 +20,7 @@ pub type Context<'a> = poise::Context<'a, Data, Error>;
 async fn main() {
     dotenv().ok();
     fmt().init();
+    info!("RUST_LOG: {:?}", env::var("RUST_LOG"));
 
     let framework = Framework::builder()
         .options(FrameworkOptions {
@@ -56,7 +59,7 @@ async fn main() {
         .expect("Error creating client");
 
     // start listening for events by starting a single shard
-    match client.start().await {
+    match client.start_autosharded().await {
         Err(err) => error!("An error occurred while running the client: {err:?}"),
         Ok(_) => info!("Started client"),
     }
