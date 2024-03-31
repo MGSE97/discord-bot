@@ -1,6 +1,11 @@
-use poise::command;
+use poise::{
+    command,
+    serenity_prelude::{
+        AutoArchiveDuration, Builder, ChannelType, CreateMessage, CreateThread, MessageId,
+    },
+};
 use thousands::Separable;
-use tracing::instrument;
+use tracing::{error, instrument};
 
 use crate::{log_cmd, Context, Error};
 
@@ -13,30 +18,88 @@ pub async fn hoo(
     #[description = "Inquery"]
     inquery: Option<String>,
 ) -> Result<(), Error> {
-    let response = respond_to_numbers(inquery.clone());
+    let channel_id = ctx.channel_id();
+    // Check if command was invoked as slash command
+    let message_id = if ctx.prefix() != "/" {
+        // Get invocation channel and message id
+        match ctx {
+            poise::Context::Application(app) => app.interaction.data.target_id.map(MessageId::from),
+            poise::Context::Prefix(pre) => Some(pre.msg.id),
+        }
+    } else {
+        None
+    };
+
+    // Prepare and log response
+    let response = respond_to_numbers(inquery.clone(), message_id.is_none());
     log_cmd!(
         ctx::hoo (
             inquery = inquery
-                .map(|i| format!("\"{i:?}\""))
+                .map(|i| format!("{i:?}"))
                 .unwrap_or_else(|| "None".to_string())
         ) => response
     );
-    ctx.reply(&response).await?;
+
+    if let Some(message_id) = message_id {
+        // Create thread and send reply there
+        match CreateThread::new(format!(
+            "🦉 Hoo {user_name}!",
+            user_name = ctx.author().name
+        ))
+        .audit_log_reason("🦉 Hoo command response")
+        .auto_archive_duration(AutoArchiveDuration::OneDay)
+        .kind(ChannelType::PublicThread)
+        .rate_limit_per_user(5)
+        .invitable(true)
+        .execute(ctx.http(), (channel_id, Some(message_id)))
+        .await
+        {
+            Ok(thread) => {
+                CreateMessage::new()
+                    .content(&response)
+                    .execute(ctx.http(), (thread.id, Some(thread.guild_id)))
+                    .await?;
+            }
+            Err(err) => {
+                error!("Failed to create thread for message {message_id} in {channel_id}: {err}");
+                // Reply direcly, if we cant create thread
+                // For instance in other thread
+                ctx.reply(&response).await?;
+            }
+        }
+    } else {
+        // Reply direcly
+        ctx.reply(&response).await?;
+    }
     Ok(())
 }
 
-pub fn respond_to_numbers(inquery: Option<String>) -> String {
-    let message = inquery.unwrap_or_default();
-    let mut response = format!("🦉 Hoo! {message}");
+pub fn respond_to_numbers(inquery: Option<String>, include_message: bool) -> String {
+    let message = inquery.clone().unwrap_or_default();
+    let mut response = format!(
+        "> 🦉 Hoo!{msg}",
+        msg = match (include_message, inquery) {
+            (true, Some(msg)) => format!("\n> {msg}"),
+            _ => String::default(),
+        }
+    );
 
     if !message.trim().is_empty() {
         let numbers = get_msg_numbers(&message);
 
         for number in numbers {
+            // Magic number to response transformer
             response = format!(
                 "{response}\nZa {value} si {item}",
                 value = number.separate_with_spaces(),
                 item = match number {
+                    0 => "∞ ptáčků užije.".to_string(),
+                    7 => "devať nezkušiš.".to_string(),
+                    9 => "kabel najdeš.".to_string(),
+                    42 => "našel odpověď.".to_string(),
+                    69 => "nice.".to_string(),
+                    420 => "tě Michal najde.".to_string(),
+                    p if (p & (p - 1)) == 0 => "binárků užiješ.".to_string(),
                     p if p < 50 => "ani ptáčka nekoupíš.".to_string(),
                     p if p < 15_000 => {
                         let birds = number / 50;
@@ -86,11 +149,14 @@ fn get_msg_numbers(msg: &str) -> Vec<u64> {
     let mut number_str = String::new();
     let mut has_dot = false;
     let mut has_exp = false;
+    let mut has_esc = false;
 
     // Parse numbers
     while let Some(&c) = chars.peek() {
         // Add number parts
-        if c.is_ascii_digit() || (c == '-' && number_str.is_empty()) {
+        if c == '<' || has_esc && c == '@' {
+            has_esc = true;
+        } else if c.is_ascii_digit() || (c == '-' && number_str.is_empty()) {
             number_str.push(c);
         // Add dot
         } else if c == '.' && !has_dot {
@@ -104,11 +170,14 @@ fn get_msg_numbers(msg: &str) -> Vec<u64> {
         }
         // Parse number
         else {
-            if let Some(parsed) = parse_number(&mut number_str, &mut chars) {
-                numbers.push(parsed);
+            if !(has_esc && matches!(chars.peek(), Some('>'))) {
+                if let Some(parsed) = parse_number(&mut number_str, &mut chars) {
+                    numbers.push(parsed);
+                }
             }
             number_str = String::new();
             has_dot = false;
+            has_esc = false;
         }
         chars.next();
     }

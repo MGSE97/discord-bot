@@ -33,7 +33,7 @@ async fn main() {
                     .collect(),
                 case_insensitive_commands: true,
                 ignore_bots: true,
-                execute_self_messages: true,
+                execute_self_messages: false,
                 ..Default::default()
             },
             ..Default::default()
