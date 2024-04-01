@@ -1,27 +1,25 @@
 name: Rust
 
 on:
-   workflow_dispatch:
+  push:
+    branches:
+       - main
+    tags:
+       - '*'
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  relase:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --release --verbose
     - name: Create Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: ncipollo/release-action@v1
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.sha }}
-        draft: false
-        prerelease: false
-        body: "Discord bot release for ${{ github.sha }}."
-        assets: |
-          path=${{ github.workspace }}/my-project-release-${{ github.sha }}.zip
+        artifacts: "target/release/discord-bot"
+        body: "Discord bot release ${{ github.ref }}."
+        draft: true
