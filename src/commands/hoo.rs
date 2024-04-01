@@ -42,9 +42,13 @@ pub async fn hoo(
 
     if let Some(message_id) = message_id {
         // Create thread and send reply there
+        let author = ctx.author();
         match CreateThread::new(format!(
-            "🦉 Hoo {user_name}!",
-            user_name = ctx.author().name
+            "🦉 Hoo @{user_name}!",
+            user_name = author
+                .global_name
+                .clone()
+                .unwrap_or_else(|| author.name.clone())
         ))
         .audit_log_reason("🦉 Hoo command response")
         .auto_archive_duration(AutoArchiveDuration::OneDay)

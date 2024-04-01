@@ -22,8 +22,9 @@ macro_rules! log_cmd {
             use ::itertools::Itertools;
             let author = $ctx.author();
             ::tracing::info!(
-                "\n#{user_id} @{user_name}: /{command} {args}",
+                "\n#{user_id}{user_nick} @{user_name}: /{command} {args}",
                 user_name = author.name.blue(),
+                user_nick = author.global_name.clone().map(|nick| format!(" @{nick}")).unwrap_or_default().blue(),
                 user_id = author.id.to_string().bright_black(),
                 command = stringify!($command).green(),
                 args = vec![
@@ -42,8 +43,9 @@ macro_rules! log_cmd {
             use ::itertools::Itertools;
             let author = $ctx.author();
             ::tracing::info!(
-                "\n#{user_id} @{user_name}: /{command} {args} => {response}",
+                "\n#{user_id}{user_nick} @{user_name}: /{command} {args} => {response}",
                 user_name = author.name.blue(),
+                user_nick = author.global_name.clone().map(|nick| format!(" @{nick}")).unwrap_or_default().blue(),
                 user_id = author.id.to_string().bright_black(),
                 command = stringify!($command).green(),
                 args = vec![
