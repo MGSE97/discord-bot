@@ -1,6 +1,6 @@
 use std::env;
 
-use commands::{barber::*, dataset::*, hoo::*};
+use commands::{barber::*, dataset::*, easter::*, hoo::*};
 use dotenv::dotenv;
 use poise::{
     serenity_prelude as serenity, Framework, FrameworkOptions, Prefix, PrefixFrameworkOptions,
@@ -24,7 +24,7 @@ async fn main() {
 
     let framework = Framework::builder()
         .options(FrameworkOptions {
-            commands: vec![hoo(), barber(), dataset()],
+            commands: vec![hoo(), barber(), dataset(), easter()],
             prefix_options: PrefixFrameworkOptions {
                 prefix: Some("/".to_string()),
                 additional_prefixes: ["!", ":owl:", "🦉"]

@@ -94,7 +94,7 @@ pub fn respond_to_numbers(inquery: Option<String>, include_message: bool) -> Str
         for number in numbers {
             // Magic number to response transformer
             response = format!(
-                "{response}\nZa {value} si {item}",
+                "{response}\n - Za {value} si {item}",
                 value = number.separate_with_spaces(),
                 item = match number {
                     0 => "∞ ptáčků užije.".to_string(),
